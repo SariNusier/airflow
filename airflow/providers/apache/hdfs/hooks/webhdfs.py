@@ -79,7 +79,9 @@ class WebHDFSHook(BaseHook):
         raise AirflowWebHDFSHookException(error_message)
 
     def _get_client(self, connection):
-        connection_str = 'http://{host}:{port}'.format(host=connection.host, port=connection.port)
+        protocol = connection.extra_dejson.get('protocol', 'http').lower()
+        connection_str = '{protocol}://{host}:{port}'.format(
+            protocol=protocol, host=connection.host, port=connection.port)
 
         if _kerberos_security_mode:
             client = KerberosClient(connection_str)
