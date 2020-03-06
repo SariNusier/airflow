@@ -63,6 +63,23 @@ class TestWebHDFSHook(unittest.TestCase):
             'http://{host}:{port}'.format(host=connection.host, port=connection.port))
         self.assertEqual(conn, mock_kerberos_client.return_value)
 
+    @patch('airflow.providers.apache.hdfs.hooks.webhdfs.InsecureClient')
+    @patch('airflow.providers.apache.hdfs.hooks.webhdfs.WebHDFSHook.get_connections', return_value=[
+        Connection(host='host_1', port=123, extra='{"protocol": "https"}'),
+        Connection(host='host_2', port=321, login='user', extra='{"protocol": "https"}')
+    ])
+    def test_conn_ssl_enabled(self, mock_get_connections, mock_insecure_client):
+        mock_insecure_client.side_effect = [HdfsError('Error'), mock_insecure_client.return_value]
+        conn = self.webhdfs_hook.get_conn()
+
+        mock_insecure_client.assert_has_calls([
+            call('https://{host}:{port}'.format(host=connection.host, port=connection.port),
+                 user=connection.login)
+            for connection in mock_get_connections.return_value
+        ])
+        mock_insecure_client.return_value.status.assert_called_once_with('/')
+        self.assertEqual(conn, mock_insecure_client.return_value)
+
     @patch('airflow.providers.apache.hdfs.hooks.webhdfs.WebHDFSHook.get_connections', return_value=[])
     def test_get_conn_no_connection_found(self, mock_get_connection):
         with self.assertRaises(AirflowWebHDFSHookException):
